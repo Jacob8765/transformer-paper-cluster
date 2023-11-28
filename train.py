@@ -14,6 +14,18 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 
+import wandb
+
+# wandb.init(wandb.init(
+#     # Set the project where this run will be logged
+#     project="my-awesome-project",
+#     # Track hyperparameters and run metadata
+#     # config={
+#     #     "learning_rate": 0.01,
+#     #     "epochs": 10,
+#     # },
+# ))
+
 class Config(NamedTuple):
     """ Hyperparameters for training """
     seed: int = 3431 # random seed
@@ -40,6 +52,16 @@ class Trainer(object):
         self.save_dir = save_dir
         self.device = device # device name
 
+        wandb.init(
+            # Set the project where this run will be logged
+            project="my-awesome-project",
+            # Track hyperparameters and run metadata
+            config={
+                "learning_rate": cfg.lr,
+                "epochs": cfg.n_epochs,
+            },
+        )
+
     def train(self, get_loss, model_file=None, data_parallel=False):
         """ Train Loop """
         self.model.train() # train mode
@@ -57,6 +79,9 @@ class Trainer(object):
 
                 self.optimizer.zero_grad()
                 loss = get_loss(model, batch, global_step).mean() # mean() for Data Parallelism
+
+                wandb.log({"loss": loss})
+
                 loss.backward()
                 self.optimizer.step()
 
@@ -74,6 +99,7 @@ class Trainer(object):
                     return
 
             print('Epoch %d/%d : Average Loss %5.3f'%(e+1, self.cfg.n_epochs, loss_sum/(i+1)))
+            wandb.log({"avg_loss": loss_sum/(i+1)})
         self.save(global_step)
 
     def eval(self, evaluate, model_file, data_parallel=True):
@@ -93,13 +119,14 @@ class Trainer(object):
             results.append(result)
 
             iter_bar.set_description('Iter(acc=%5.3f)'%accuracy)
+            wandb.log({"accuracy": accuracy})
         return results
 
     def load(self, model_file):
         """ load saved model or pretrained transformer (a part of model) """
         if model_file:
             print('Loading the model from', model_file)
-            self.model.load_state_dict(torch.load(model_file))
+            self.model.load_state_dict(torch.load(os.path.join(os.getcwd(), model_file)))
 
     def save(self, i):
         """ save current model """

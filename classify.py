@@ -149,12 +149,14 @@ class TokenIndexing(Pipeline):
 class Classifier(nn.Module):
     """ Classifier with Transformer """
     def __init__(self, cfg, n_labels):
+        # cfg.dim = cfg.hidden
+
         super().__init__()
         self.transformer = models.Transformer(cfg)
-        self.fc = nn.Linear(cfg.dim, cfg.dim)
+        self.fc = nn.Linear(cfg.hidden, cfg.hidden)
         self.activ = nn.Tanh()
-        self.drop = nn.Dropout(cfg.p_drop_hidden)
-        self.classifier = nn.Linear(cfg.dim, n_labels)
+        self.drop = nn.Dropout(0.1)#cfg.p_drop_hidden)
+        self.classifier = nn.Linear(cfg.hidden, n_labels)
 
     def forward(self, input_ids, segment_ids, input_mask):
         h = self.transformer(input_ids, segment_ids, input_mask)
@@ -169,12 +171,15 @@ class Classifier(nn.Module):
 def main(task='mrpc',
          train_cfg='config/train_mrpc.json',
          model_cfg='config/albert_base.json',
-         data_file='../glue/MRPC/train.tsv',
-         model_file=None,
-         pretrain_file='../uncased_L-12_H-768_A-12/bert_model.ckpt',
-         data_parallel=True,
-         vocab='../uncased_L-12_H-768_A-12/vocab.txt',
-         save_dir='../exp/bert/mrpc',
+        #  data_file='../glue/MRPC/train.tsv',
+        data_file="./msr_paraphrase_train.tsv",
+         model_file='./pretrain_models/model_steps_200.pt',
+        #  pretrain_file='../uncased_L-12_H-768_A-12/bert_model.ckpt',
+        pretrain_file="./pretrain_models/Albert base v2 model.bin",
+         data_parallel=False,
+        #  vocab='../uncased_L-12_H-768_A-12/vocab.txt',
+        vocab="./data/Vocab.txt",
+         save_dir='./pretrain_models',
          max_len=128,
          mode='train'):
 
@@ -208,7 +213,7 @@ def main(task='mrpc',
             loss = criterion(logits, label_id)
             return loss
 
-        trainer.train(get_loss, model_file, pretrain_file, data_parallel)
+        trainer.train(get_loss, model_file, data_parallel)
 
     elif mode == 'eval':
         def evaluate(model, batch):

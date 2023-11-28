@@ -1,0 +1,1 @@
+QUERY = "The animal lives in the "
